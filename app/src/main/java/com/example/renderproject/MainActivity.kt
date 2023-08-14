@@ -7,15 +7,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.TargetBasedAnimation
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +31,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,10 +43,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -52,6 +65,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.Group
 import androidx.compose.ui.graphics.vector.Path
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.VerticalAlignmentLine
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -79,18 +93,130 @@ class MainActivity : ComponentActivity() {
         setContent {
             RenderProjectTheme {
                 // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+
+
+                ShowAwesomeFeatures()/* Surface(
+                     modifier = Modifier.fillMaxSize(),
+                     color = MaterialTheme.colorScheme.background
+                 ) {
+
+                     *//*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         JellyfishAnimation()
-                    }*/
-                }
+                    }*//*
+                }*/
             }
         }
     }
 }
+
+private enum class ImageState {
+    Small, Large
+}
+
+@Preview
+@Composable
+fun ShowAwesomeFeatures() {
+
+
+
+
+    var playTime = remember { 0L }
+
+    val animationScope = rememberCoroutineScope()
+
+
+    val targetBasedAnimation = remember {
+        TargetBasedAnimation(
+            animationSpec = tween(2000),
+            typeConverter = Float.VectorConverter,
+            initialValue = 0f,
+            targetValue = 1000f
+        )
+    }
+
+
+    animationScope.launch {
+        // Need to extract the already played time
+        // If user pauses and resumes the animation, shifting start time by
+        // play time will make sure that the animation will continue from the
+        // last played time
+        val startTime = withFrameNanos { it } - playTime
+
+        // Only continue animating if the state is running
+        while (true) {
+            playTime = withFrameNanos { it } - startTime
+//            animationValue = targetBasedAnimation.getValueFromNanos(playTime)
+        }
+    }
+
+
+    val infiniteTransition = rememberInfiniteTransition()
+    val infinitelyAnimatedFloat = infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f, animationSpec = infiniteRepeatable(
+            animation = tween(),
+            // The value will infinitely repeat from 0 to 1 and 1 to 0
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
+    val infinitelyAnimatedRadiusFloat = infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 100f, animationSpec = infiniteRepeatable(
+            animation = tween(),
+            // The value will infinitely repeat from 0 to 1 and 1 to 0
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
+
+    var imageState by remember {
+        mutableStateOf(ImageState.Small)
+    }
+
+
+    val transition = updateTransition(targetState = imageState, label = "BoxState Transition")
+
+    val borderColor by transition.animateColor(
+        label = "BoxState Color Transition",
+        transitionSpec = { tween(durationMillis = 5000) }) {
+        when (it) {
+            ImageState.Small -> Color.Green
+            ImageState.Large -> Color.Magenta
+        }
+
+    }
+
+    val size by transition.animateFloat(label = "BoxState Size Transition",
+        transitionSpec = { tween(durationMillis = 5000) }) {
+        when (it) {
+            ImageState.Small -> 90f
+            ImageState.Large -> 130f
+        }
+    }
+
+
+
+    LaunchedEffect(key1 = Unit, block = {
+        imageState = ImageState.Large
+    })
+
+
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight()
+            .background(Color.Black)
+    ) {
+        drawCircle(
+            color = Color.White,
+            radius = infinitelyAnimatedRadiusFloat.value,
+            // The circle will blink infinitely with the animation specs above
+            alpha = infinitelyAnimatedFloat.value
+        )
+    }
+
+
+}
+
 
 val largeRadialGradient = object : ShaderBrush() {
     override fun createShader(size: Size): Shader {
@@ -104,8 +230,7 @@ val largeRadialGradient = object : ShaderBrush() {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
-@Preview
+
 @Composable
 fun JellyfishAnimation() {
 
@@ -145,11 +270,8 @@ fun JellyfishAnimation() {
     val duration = 3000
     val transition = rememberInfiniteTransition()
     val translationY by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -30f,
-        animationSpec = infiniteRepeatable(
-            tween(duration, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
+        initialValue = 0f, targetValue = -30f, animationSpec = infiniteRepeatable(
+            tween(duration, easing = EaseInOut), repeatMode = RepeatMode.Reverse
         )
     )
 
@@ -167,67 +289,45 @@ fun JellyfishAnimation() {
         ) {
             Group("tentacles") {
                 Path(
-                    pathData = tenaclesPath,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = tenaclesPath, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
                 Path(
-                    pathData = tentacleSecond,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = tentacleSecond, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
                 Path(
-                    pathData = tentacleThree,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = tentacleThree, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
                 Path(
-                    pathData = tentacleForth,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = tentacleForth, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
                 Path(
-                    pathData = tentacleFifth,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = tentacleFifth, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
                 Path(
-                    pathData = tentacleSixth,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = tentacleSixth, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
                 Path(
-                    pathData = tentacleSeven,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = tentacleSeven, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
                 Path(
-                    pathData = tentacle8,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = tentacle8, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
 
             }
 
             Group("Smile") {
                 Path(
-                    pathData = smile,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = smile, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
             }
 
             Group("Head") {
                 Path(
-                    pathData = headOfTentacle,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = headOfTentacle, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
 
                 Path(
-                    pathData = outerHead,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = outerHead, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
             }
 
@@ -239,9 +339,7 @@ fun JellyfishAnimation() {
 
             ) {
                 Path(
-                    pathData = leftEye,
-                    fill = SolidColor(Color.White),
-                    fillAlpha = 0.49f
+                    pathData = leftEye, fill = SolidColor(Color.White), fillAlpha = 0.49f
                 )
 
 
@@ -262,117 +360,33 @@ fun JellyfishAnimation() {
         }
     }
 
-    /*Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-
-        ) {
-        Text(
-            text = "Hello",
-            style = MaterialTheme.typography.headlineLarge,
-            fontSize = 24.sp,
-            modifier = Modifier.graphicsLayer(translationY)
-                .onSizeChanged { size ->
-                    shader.setFloatUniform(
-                        "resolution",
-                        size.width.toFloat(),
-                        size.height.toFloat()
-                    )
-                }
-                .background(largeRadialGradient)
-                .graphicsLayer {
-                    shader.setFloatUniform("time", time)
-                    renderEffect = android.graphics.RenderEffect
-                        .createRuntimeShaderEffect(
-                            shader,
-                            "contents"
-                        )
-                        .asComposeRenderEffect()
-                }
-        )
-        Text(
-            text = "world",
-            style = MaterialTheme.typography.headlineLarge,
-            fontSize = 24.sp,
-            modifier = Modifier
-                .onSizeChanged { size ->
-                    shader.setFloatUniform(
-                        "resolution",
-                        size.width.toFloat(),
-                        size.height.toFloat()
-                    )
-                }
-                .background(largeRadialGradient)
-                .graphicsLayer {
-                    shader.setFloatUniform("time", time)
-                    renderEffect = android.graphics.RenderEffect
-                        .createRuntimeShaderEffect(
-                            shader,
-                            "contents"
-                        )
-                        .asComposeRenderEffect()
-                }
-        )
-        Text(
-            text = "2023",
-            style = MaterialTheme.typography.headlineLarge,
-            fontSize = 24.sp,
-            modifier = Modifier
-                .onSizeChanged { size ->
-                    shader.setFloatUniform(
-                        "resolution",
-                        size.width.toFloat(),
-                        size.height.toFloat()
-                    )
-                }
-                .background(largeRadialGradient)
-                .graphicsLayer {
-                    shader.setFloatUniform("time", time)
-                    renderEffect = android.graphics.RenderEffect
-                        .createRuntimeShaderEffect(
-                            shader,
-                            "contents"
-                        )
-                        .asComposeRenderEffect()
-                }
-        )
-    }
-*/
-
-     Image(
-         vectorPainter,
-         contentDescription = "Jellyfish",
-         modifier = Modifier
-             .clickable {
-
-                 coroutineScope.launch {
-                     instantBlinkAnimation()
-                 }
-             }
-             .fillMaxSize()
-             .background(largeRadialGradient)
-             .onSizeChanged { size ->
-                 shader.setFloatUniform(
-                     "resolution",
-                     size.width.toFloat(),
-                     size.height.toFloat()
-                 )
-             }
-             .graphicsLayer {
-                 shader.setFloatUniform("time", time)
-                 renderEffect = android.graphics.RenderEffect
-                     .createRuntimeShaderEffect(
-                         shader,
-                         "contents"
-                     )
-                     .asComposeRenderEffect()
-             }
 
 
-     )
+    Image(vectorPainter, contentDescription = "Jellyfish", modifier = Modifier
+        .clickable {
+
+            coroutineScope.launch {
+                instantBlinkAnimation()
+            }
+        }
+        .fillMaxSize()
+        .background(largeRadialGradient)
+        .onSizeChanged { size ->
+            shader.setFloatUniform(
+                "resolution", size.width.toFloat(), size.height.toFloat()
+            )
+        }
+        .graphicsLayer {
+            shader.setFloatUniform("time", time)
+            renderEffect = android.graphics.RenderEffect
+                .createRuntimeShaderEffect(
+                    shader, "contents"
+                )
+                .asComposeRenderEffect()
+        }
+
+
+    )
 
 
 }
